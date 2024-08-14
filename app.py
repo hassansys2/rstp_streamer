@@ -19,10 +19,9 @@ PASSWORD_FILE = 'users.json'
 gst_process = None
 
 def get_rtsp_port():
-    with open('01.cam') as f:
+    with open('01.cam', 'r') as f:
         data = json.load(f)
-        print("RTSP PORT " + data['PortThirdPartyRtsp'])
-    return data['PortThirdPartyRtsp']
+    return data.get('GENERAL', {}).get('PortThirdPartyRtsp', 8554)  # Default to 554 if not found
 
 # rtsp_ip = '192.168.206.21'
 rtsp_port = get_rtsp_port()
