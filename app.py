@@ -16,6 +16,19 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(seconds=300)
 
 # Path to the JSON file storing passwords
 PASSWORD_FILE = 'users.json'
+gst_process = None
+
+def get_rtsp_port():
+    with open('01.cam') as f:
+        data = json.load(f)
+        print("RTSP PORT " + data['PortThirdPartyRtsp'])
+    return data['PortThirdPartyRtsp']
+
+# rtsp_ip = '192.168.206.21'
+rtsp_port = get_rtsp_port()
+rtsp_ip = '192.168.0.170'
+# rtsp_port = '554'
+rtsp_dir = 'DeskCamera_DISPLAY1/DISPLAY1_For_MainStream_Token'
 
 # Function to load user data from JSON file
 def load_users():
@@ -141,6 +154,38 @@ def login_page():
 @session_required
 def index():
     return send_from_directory(app.static_folder, 'index.html')
+
+# @app.route('/stream')
+# def stream():
+#     return send_from_directory(app.static_folder, 'stream.html')
+
+@app.route('/stream')
+def stream():
+    global gst_process
+
+    if gst_process is None or gst_process.poll() is not None:
+        
+        gst_command = [
+            'gst-launch-1.0', '-v',
+            'rtspsrc', f'location=rtsp://{rtsp_ip}:{rtsp_port}/{rtsp_dir}', 'latency=0', '!',
+            'decodebin', '!', 
+            'x264enc', 'tune=zerolatency', '!', 
+            'h264parse', '!', 
+            'mpegtsmux', '!', 
+            'hlssink', 
+            f'location=output/output%05d.ts', 
+            f'playlist-location=output/output.m3u8', 
+            'target-duration=5',
+            'playlist-length=3',
+            'max-files=5', 
+        ]
+
+        gst_process = subprocess.Popen(gst_command)
+    return send_from_directory(app.static_folder, 'stream.html')
+
+@app.route('/hls/<path:filename>')
+def hls(filename):
+    return send_from_directory('output', filename)
 
 @app.route('/login', methods=['POST'])
 def login():
